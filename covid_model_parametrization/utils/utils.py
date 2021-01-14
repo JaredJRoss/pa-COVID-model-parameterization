@@ -87,12 +87,41 @@ def read_in_admin_boundaries(config, parameters, country_iso3):
         parameters["admin"]["directory"],
         f'{parameters["admin"]["directory"]}.shp',
     )
-    # Read in and rename columns for Somalia
-    return gpd.read_file(input_shp).rename(columns={
-        'admin0Pcod': 'ADM0_PCODE',
-        'admin1Pcod': 'ADM1_PCODE',
-        'admin2Pcod': 'ADM2_PCODE',
-    })
+
+    gdf = gpd.read_file(input_shp)
+
+    if country_iso3 == 'ITA':
+        region_shp = os.path.join(
+            input_dir,
+            config.SHAPEFILE_DIR,
+            'Reg01012020',
+            f'Reg01012020.shp',
+        )
+        region_gdf = gpd.read_file(region_shp)[['COD_REG','DEN_REG']]
+        rip_shp = os.path.join(
+            input_dir,
+            config.SHAPEFILE_DIR,
+            'RipGeo01012020',
+            f'RipGeo01012020.shp',
+        )
+        rip_gdf = gpd.read_file(rip_shp)[['COD_RIP','DEN_RIP']]
+
+        gdf = gdf.merge(region_gdf, on='COD_REG')
+        gdf = gdf.merge(rip_gdf, on='COD_RIP')
+        gdf = gdf.to_crs('EPSG:4326')
+
+    if 'adm_renames' in parameters['admin']:
+        gdf = gdf.rename(columns=parameters['admin']['adm_renames'])
+
+    else:
+        # Read in and rename columns for Somalia
+        gdf = gdf.rename(columns={
+            'admin0Pcod': 'ADM0_PCODE',
+            'admin1Pcod': 'ADM1_PCODE',
+            'admin2Pcod': 'ADM2_PCODE',
+        })
+        
+    return gdf
 
 def remove_chars(seq):
     seq_type = type(seq)

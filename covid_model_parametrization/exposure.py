@@ -27,7 +27,7 @@ def exposure(country_iso3, download_worldpop=False, config=None):
 
     # Get input boundary shape file
     ADM2boundaries = utils.read_in_admin_boundaries(config, parameters, country_iso3)
-
+    ADM2boundaries = ADM2boundaries.to_crs("EPSG:4326")
     # Download the worldpop data
     if download_worldpop:
         get_worldpop_data(country_iso3, input_dir, config)
@@ -73,10 +73,13 @@ def exposure(country_iso3, download_worldpop=False, config=None):
     for index, row in ADM2boundaries.iterrows():
         tot_UN = row["tot_pop_UN"]
         tot_sad = row[gender_age_group_names].sum()
+        print(index)
         try:
             ADM2boundaries.loc[index, gender_age_group_names] *= tot_UN / tot_sad
         except ZeroDivisionError:
+            print(row)
             region_name = row[f'ADM2_{parameters["admin"]["language"]}']
+
             logger.warning(
                 f"The sum across all genders and ages for admin region {region_name} is 0"
             )

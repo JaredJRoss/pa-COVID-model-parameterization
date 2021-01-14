@@ -50,16 +50,24 @@ def graph(country_iso3, end_date, config=None):
 
     # Add contact matrix
     add_contact_matrix(G, parameters["contact_matrix"], config)
-
-    input_shp = os.path.join(
-        config.INPUT_DIR,
-        country_iso3,
-        config.SHAPEFILE_DIR,
-        parameters["admin"]["directory"],
-        f'{parameters["admin"]["directory"]}.shp',
-    )
+    if country_iso3 == 'ITA':
+        input_shp = os.path.join(
+            config.INPUT_DIR,
+            country_iso3,
+            config.SHAPEFILE_DIR,
+            'Reg01012020',
+            f'Reg01012020.shp',
+        )
+    else: 
+        input_shp = os.path.join(
+            config.INPUT_DIR,
+            country_iso3,
+            config.SHAPEFILE_DIR,
+            parameters["admin"]["directory"],
+            f'{parameters["admin"]["directory"]}.shp',
+        )
     # Add general attributes to ensure compatibility with Bucky requirements
-    G=add_general_attributes(G, country_iso3,input_shp)
+    G=add_general_attributes(G, country_iso3,input_shp,parameters)
 
     # Write out
     data = nx.readwrite.json_graph.node_link_data(G)
@@ -83,6 +91,7 @@ def initialize_with_mobility(filename):
     logger.info(f"Reading in mobility from {filename}")
     mobility = pd.read_csv(filename)
     mobility.set_index("ADM", inplace=True)
+    mobility.index = mobility.index.map(str)
     G = nx.from_pandas_adjacency(mobility, nx.DiGraph)
     return G
 
@@ -112,6 +121,10 @@ def add_exposure(G, main_dir, country_iso3, parameters, config):
     exposure["population_density"] = np.round(exposure["population"] / exposure[
         "geometry"
     ].to_crs(config.PSEUDO_MERCATOR_CRS).apply(lambda x: x.area / 10 ** 6), 8)
+    
+    exposure['ADM1_PCODE'] = exposure['ADM1_PCODE'].astype(str)
+    exposure['ADM2_PCODE'] = exposure['ADM2_PCODE'].astype(str)
+
     exposure['adm1_int'] = exposure['ADM1_PCODE'].str.extract('(\d+)')
     exposure['adm2_int'] = exposure['ADM2_PCODE'].str.extract('(\d+)')
     # Only keep necessary columns
@@ -172,7 +185,7 @@ def add_covid(G, main_dir, country_iso3, end_date, config):
         G.graph["dates"] = list(covid_out.index.astype(str))
         for admin2 in covid_out.columns:
             G.add_node(
-                admin2, **{f"{bucky_dict[cname]}_hist": covid_out[admin2].values.tolist()}
+                str(admin2), **{f"{bucky_dict[cname]}_hist": covid_out[admin2].values.tolist()}
             )
     return G
 
@@ -239,6 +252,7 @@ def add_vulnerability(G, main_dir, country_iso3, config):
     ].max(axis=1)
     # Take the handwashing facilties factor as proxy for high_beta_fraction
     vulnerability["high_beta_frac"] = vulnerability["handwashing_facilities"]
+    vulnerability['ADM2_PCODE'] = vulnerability['ADM2_PCODE'].astype(str)
     # Add the exposure info to graph
     for row in vulnerability.to_dict(orient="records"):
         G.add_node(row["ADM2_PCODE"], **row)
@@ -276,7 +290,7 @@ def add_contact_matrix(G, parameters, config):
     G.graph["contact_mats"]["elderly_shielding"] = elderly_shielding_matrix.tolist()
     return G
 
-def add_general_attributes(G, country_iso3, shape_path):
+def add_general_attributes(G, country_iso3, shape_path,parameters):
     # update graph attributes to be compatible with Bucky model
     start_date = G.graph['dates'][-1]
     G.graph['start_date'] = start_date
@@ -289,8 +303,15 @@ def add_general_attributes(G, country_iso3, shape_path):
     adm1_to_str = {}
     for obj in shape:
         #remove the letters from the pcode
-        pcode=re.findall(r'\d+', str(obj['properties']['ADM1_PCODE']))[0]
-        name = obj['properties'].get('ADM1_EN', 'ADM1_FR').lower()
+        if 'shapeFile' in parameters:
+            pcode=re.findall(r'\d+', str(obj['properties'][parameters['shapeFile']['ADM1_PCODE']]))[0]
+        else:
+            pcode=re.findall(r'\d+', str(obj['properties']['ADM1_PCODE']))[0]
+        if country_iso3 == 'ITA':
+            name = obj['properties'].get('DEN_REG').lower()
+        else:
+            name = obj['properties'].get('ADM1_EN', 'ADM1_FR').lower()
+
         adm1_to_str[pcode] = name
     G.graph['adm1_to_str'] = adm1_to_str
 

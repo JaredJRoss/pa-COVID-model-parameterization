@@ -1,0 +1,124 @@
+# This YAML file is intended as a template for adding a new country. All values are set to null.
+# The first step is to rename the YAML file with the lowercase country ISO3 code, i.e. ${ISO3}.yml
+
+# Settings for the country administrative boundaries
+admin:
+  # The name of the unzipped directory containing the shapefile (should have the same name as the shapefile)
+  directory: ProvCM01012020
+  # The ISO 639-1 of the primary language for the admin names, which in the COD files usually appears in the
+  # column headers as e.g. ADMIN2_${ISO 639-1}
+  language: IT
+  references:
+    - Reg01012020
+    - RipGeo01012020
+  adm_renames:
+    COD_RIP: ADM0_PCODE
+    COD_REG: ADM1_PCODE
+    COD_PROV: ADM2_PCODE
+    DEN_UTS: ADM2_IT
+    DEN_REG: ADM1_IT
+    DEN_RIP: ADM0_IT
+shapeFile:
+  ADM1_PCODE: COD_REG
+
+# Settings for the mobility matrix
+mobility:
+  file: 'roads.shp'
+  colRename:
+    type: highway
+  scaling_factor:
+    # Household size from
+    # https://population.un.org/Household/index.html#/countries/
+    # (see documentation if country is not available)
+    household_size: 2.4
+    # Motor vehicle fraction from
+    # https://www.who.int/violence_injury_prevention/road_safety_status/country_profiles/en/
+    # by taking the total population divided by the number of registered vehicles
+    # (see documentation if country is not available)
+    motor_vehicle_fraction: .734
+# Settings for vulnerability
+vulnerability:
+  ghs:
+    # Check GHS: https://ghsl.jrc.ec.europa.eu/download.php for the squares that cover the country in question.
+    # Double check the coverage by displaying the admin file over the GHS rasters in QGIS.
+    # Format should be a list of integer pairs (column, row)
+    column_row_pairs:
+      - (18, 3)
+      - (18, 4)
+      - (19, 3)
+      - (19, 4)
+  ipc:
+    # Name of IPC file, leave '~' if IPC data is not available
+    filename: ~
+
+  solid_fuels:
+    # from https://www.who.int/nmh/countries/
+    # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) 
+    frac_urban: .02
+    frac_rural: .02
+  handwashing_facilities:
+    # from https://washdata.org/data/downloads#WLD
+    # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) 
+    # this is the sum of 'Limited' and 'No facility' in the 'Hygiene' tab of the Household World file
+    frac_urban: .05
+    frac_rural: .1
+  # from https://www.who.int/nmh/countries/2018/
+  # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) Guessed the site is down for these numbers used (https://academic.oup.com/eurheartjsupp/article/21/Supplement_D/D66/5476849)
+  raised_blood_pressure: .38
+  # from https://www.who.int/nmh/countries/2018/
+  # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20)  the site they gave is down used (https://www.istat.it/en/archivio/202712#:~:text=In%202016%20more%20than%203,was%202.9%25%20in%201980).)
+  diabetes: .053
+  # from https://vizhub.healthdata.org/tobacco/
+  # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) 
+  smoking: .19
+# TODO: covid section
+covid:
+  # URL of the COVID file to be downloaded (from HDX or elsewhere)
+  url: https://github.com/pcm-dpc/COVID-19/blob/master/dati-regioni/dpc-covid19-ita-regioni.csv
+  # local filename of the COVID file 
+  filename: dpc-covid19-ita-regioni.csv
+  # header of the COVID-19 (if set to 1 the second row - HLX tag - is used)
+  header: 0
+  # skip the first row if using HLX tag as header
+  skiprows: 0
+  # True is the dataset contains case data
+  cases: True
+  # True is the dataset contains death data
+  deaths: True
+  # True if the dataset represent invidual case data (i.e. each row correspond to a patient)
+  individual_case_data: False
+  # True is the data represent cumulative cases and deaths (instead of new cases and deaths)
+  cumulative: True
+  # admin level provided (can be 1 or 2)
+  admin_level: 1
+  # for Somalia we have data at the federal state level (which is not ADM1 or 2)
+  federal_state_dict: False
+  # ADM1 name column in the exposure file (the shapefile in the country folder) 
+  adm1_name_exp: ADM1_IT
+  # ADM2 name field in the exposure file (the shapefile in the country folder) 
+  adm2_name_exp: ADM2_IT
+  # format of the date in the COVID dataset
+  date_format:  "%Y-%m-%dT%H:%M:%S"
+  # replace column values to match the ADMIN names in the exposure
+  # used to get the pcodes from the exposure file
+  replace_dict:
+    P.A. Trento: Trentino-Alto Adige
+    P.A. Bolzano: Trentino-Alto Adige
+  # dictionary to map HLX tags in the COVID dataset to standard HLX tags used in teh model
+  hlx_dict:
+    "totale_casi": "#affected+infected+confirmed+total"
+    "deceduti": "#affected+infected+dead+total"
+    "data": "#date"
+    "denominazione_regione": "#adm1+name"
+    "codice_regione": "#adm1+pcode"
+# Contact matrix settings
+contact_matrix:
+  # The sheet name of the country to use for the contact matrices
+  country: Italy
+  # Whether the country falls in the first or second set of files (1 or 2)
+  file_number: 1
+
+# NPI settings
+NPIs:
+  # The URL of the published Google sheet with NPIs
+  url: ~

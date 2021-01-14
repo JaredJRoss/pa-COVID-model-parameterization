@@ -1,0 +1,159 @@
+# This YAML file is intended as a template for adding a new country. All values are set to null.
+# The first step is to rename the YAML file with the lowercase country ISO3 code, i.e. ${ISO3}.yml
+
+# Settings for the country administrative boundaries
+admin:
+  # The name of the unzipped directory containing the shapefile (should have the same name as the shapefile)
+  directory: bra_admbnda_adm2_ibge_2020
+  # The ISO 639-1 of the primary language for the admin names, which in the COD files usually appears in the
+  # column headers as e.g. ADMIN2_${ISO 639-1}
+  language: PT
+# Settings for the mobility matrix
+mobility:
+  scaling_factor:
+    # Household size from
+    # https://population.un.org/Household/index.html#/countries/
+    # (see documentation if country is not available)
+    household_size: 3.3
+    # Motor vehicle fraction from
+    # https://www.who.int/violence_injury_prevention/road_safety_status/country_profiles/en/
+    # by taking the total population divided by the number of registered vehicles
+    # (see documentation if country is not available)
+    motor_vehicle_fraction: .259
+  directionList:
+    - north
+    - east
+    - west
+    - south1
+    - south2
+# Settings for vulnerability
+vulnerability:
+  ghs:
+    # Check GHS: https://ghsl.jrc.ec.europa.eu/download.php for the squares that cover the country in question.
+    # Double check the coverage by displaying the admin file over the GHS rasters in QGIS.
+    # Format should be a list of integer pairs (column, row)
+    column_row_pairs:
+      - (14, 9)
+      - (14, 10)
+      - (14, 11)
+      - (13, 8)
+      - (13, 9)
+      - (13, 10)
+      - (13, 11)
+      - (13, 12)
+      - (13, 13)
+      - (12, 8)
+      - (12, 9)
+      - (12, 10)
+      - (12, 11)
+      - (12, 12)
+      - (11, 8)
+      - (11, 9)
+      - (11, 10)
+      - (10, 9)
+      - (10, 10)
+  ipc:
+    # Name of IPC file, leave '~' if IPC data is not available
+    filename: ~
+  solid_fuels:
+    # from https://www.who.int/nmh/countries/
+    # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) 
+    frac_urban: .05
+    frac_rural: .28
+  handwashing_facilities:
+    # from https://washdata.org/data/downloads#WLD
+    # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) 
+    # this is the sum of 'Limited' and 'No facility' in the 'Hygiene' tab of the Household World file
+    frac_urban: .16
+    frac_rural: .29
+  # from https://www.who.int/nmh/countries/2018/
+  # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) 
+  raised_blood_pressure: .23
+  # from https://www.who.int/nmh/countries/2018/
+  # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) 
+  diabetes: .08
+  # from https://vizhub.healthdata.org/tobacco/
+  # expressed as fraction (e.g. 0.2) instead of percentage (e.g. 20) 
+  smoking: .11
+# TODO: covid section
+covid:
+  # URL of the COVID file to be downloaded (from HDX or elsewhere)
+  #COVID data downloaded from https://covid.saude.gov.br/
+  url: https://mobileapps.saude.gov.br/esus-vepi/files/unAFkcaNDeXajurGB7LChj8SgQYS2ptm/6c67f6512682d0fdcfc12a305e4d20b4_HIST_PAINEL_COVIDBR_19nov2020.csv
+  # local filename of the COVID file 
+  filename: covid_data.csv
+  # header of the COVID-19 (if set to 1 the second row - HLX tag - is used)
+  header: 0
+  # skip the first row if using HLX tag as header
+  skiprows: 0
+  # True is the dataset contains case data
+  cases: True
+  # True is the dataset contains death data
+  deaths: True
+  # True if the dataset represent invidual case data (i.e. each row correspond to a patient)
+  individual_case_data: False
+  # True is the data represent cumulative cases and deaths (instead of new cases and deaths)
+  cumulative: True
+  # admin level provided (can be 1 or 2)
+  admin_level: 2
+  # for Somalia we have data at the federal state level (which is not ADM1 or 2)
+  federal_state_dict: False
+  # ADM1 name column in the exposure file (the shapefile in the country folder) 
+  adm1_name_exp: ADM1_PT
+  # ADM2 name field in the exposure file (the shapefile in the country folder) 
+  adm2_name_exp: ADM2_PT
+  # format of the date in the COVID dataset
+  date_format: "%Y-%m-%d"
+  # type of delimiter to use in csv
+  delimiter: ";"
+  # replace column values to match the ADMIN names in the exposure
+  # used to get the pcodes from the exposure file
+  replace_dict:
+    RO: Rondônia
+    AC: Acre
+    AM: Amazonas
+    RR: Roraima
+    PA: Pará
+    AP: Amapá
+    TO: Tocantins
+    MA: Maranhão
+    PI: Piauí
+    CE: Ceará
+    RN: Rio Grande do Norte
+    PB: Paraíba
+    PE: Pernambuco
+    AL: Alagoas
+    SE: Sergipe
+    BA: Bahia
+    MG: Minas Gerais
+    ES: Espírito Santo
+    RJ: Rio de Janeiro
+    SP: São Paulo
+    PR: Paraná
+    SC: Santa Catarina
+    RS: Rio Grande do Sul
+    MS: Mato Grosso do Sul
+    MT: Mato Grosso
+    GO: Goiás
+    DF: Distrito Federal
+    Amparo de São Francisco: Amparo do São Francisco
+  # dictionary to map HLX tags in the COVID dataset to standard HLX tags used in the model
+  hlx_dict:
+    "casosAcumulado": "#affected+infected+confirmed+total"
+    "obitosAcumulado": "#affected+infected+dead+total"
+    "data": "#date"
+    "estado": "#adm1+name"
+    "municipio": "#adm2+name"
+    "coduf": "#adm1+pcode"
+    "codmun": "#adm2+pcode"
+    
+# Contact matrix settings
+contact_matrix:
+  # The sheet name of the country to use for the contact matrices
+  country: Brazil
+  # Whether the country falls in the first or second set of files (1 or 2)
+  file_number: 1
+# NPI settings
+NPIs:
+  # The URL of the published Google sheet with NPIs
+  url: ~

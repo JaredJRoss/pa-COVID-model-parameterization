@@ -11,8 +11,8 @@ logger = logging.getLogger(__name__)
 
 HXL_DICT = {
     'Date_reported': '#date',
-    ' Cumulative_cases': '#affected+infected+confirmed+total',
-    ' Cumulative_deaths': '#affected+infected+dead+total'
+    'Cumulative_cases': '#affected+infected+confirmed+total',
+    'Cumulative_deaths': '#affected+infected+dead+total'
 }
 
 
@@ -27,7 +27,7 @@ def get_WHO_data(config, country_iso3, hxlize=False):
     # Get the data for the country based on ISO3
     logger.info(f'Returning WHO data for {country_iso3}')
     df_WHO = pd.read_csv(final_filepath)
-    df_WHO = df_WHO.loc[df_WHO[' Country_code'] == Country.get_iso2_from_iso3(country_iso3)]
+    df_WHO = df_WHO.loc[df_WHO['Country_code'] == Country.get_iso2_from_iso3(country_iso3)]
     if hxlize:
        df_WHO = df_WHO.rename(columns=HXL_DICT)
     return df_WHO

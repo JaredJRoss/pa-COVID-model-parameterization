@@ -31,6 +31,7 @@ def covid(country_iso3, download_covid=False, config=None):
     # Download latest covid file tiles and read them in
     if download_covid:
         get_covid_data(parameters["covid"], country_iso3, input_dir, config)
+
     df_covid = pd.read_csv(
         "{}/{}".format(
             os.path.join(input_dir, config.COVID_OUTPUT_DIR),
@@ -38,6 +39,7 @@ def covid(country_iso3, download_covid=False, config=None):
         ),
         header=parameters["covid"]["header"],
         skiprows=parameters["covid"]["skiprows"],
+        sep=parameters["covid"]["delimiter"] if "delimiter" in parameters["covid"] else ","
     )
     # drop duplicates. Some datasets have duplicated rows on HDX
     df_covid=df_covid.drop_duplicates()
@@ -45,7 +47,7 @@ def covid(country_iso3, download_covid=False, config=None):
     # convert to standard HLX
     if "hlx_dict" in parameters["covid"]:
         df_covid = df_covid.rename(columns=parameters["covid"]["hlx_dict"])
-
+    
     # in South Sudan we have individual case data which need to be aggregated at the ADM2 level 
     if (
         parameters["covid"]["individual_case_data"]
@@ -160,6 +162,11 @@ def covid(country_iso3, download_covid=False, config=None):
         df_covid[config.HLX_TAG_ADM2_PCODE] = df_covid[config.HLX_TAG_ADM2_NAME].map(
             ADM2_names
         )
+        #check for regions that have no admm2 and are just aggregates of the data
+        #this is for BRA data might need tweaking for other countries
+        if country_iso3.lower() == 'bra': 
+            df_covid = df_covid[df_covid[config.HLX_TAG_ADM2_PCODE].notnull() & df_covid[config.HLX_TAG_ADM2_NAME] != 0]
+
         if df_covid[config.HLX_TAG_ADM2_PCODE].isnull().sum() > 0:
             logger.warning(
                 "missing PCODE for the following admin units "

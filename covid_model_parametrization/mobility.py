@@ -2,12 +2,14 @@ import os
 import itertools
 import logging
 import ast
-from pathlib import Path
+import gc
 
+from pathlib import Path
 import numpy as np
 import pandas as pd
 import geopandas as gpd
 import matplotlib.pyplot as plt
+from pprint import pprint
 
 from covid_model_parametrization import exposure
 from covid_model_parametrization.config import Config
@@ -79,6 +81,7 @@ def mobility(country_iso3, read_in_crossings=True, read_in_distances=True, confi
         df_roads_out = df_roads.copy()
         for cname in ['crossings', 'crossing_pairs']:
             df_roads_out[cname] = df_roads_out[cname].apply(str)
+        print(type(df_roads_out))
         df_roads_out.to_file(os.path.join(output_dir, config.CROSSINGS_FILENAME), driver='GPKG')
     # Get centroid dist
     if read_in_distances:
@@ -113,17 +116,53 @@ def get_borders(df_adm):
 
 
 def load_roads(country_iso3, config, parameters, df_borders):
+    pprint(parameters)
     logger.info('Downloading roads file')
     save_dir =  os.path.join(config.INPUT_DIR, country_iso3, config.MOBILITY_DIR)
     Path(save_dir).mkdir(parents=True, exist_ok=True)
-    download_filename = list(query_api(config.ROADS_HDX_ADDRESS.format(country_iso3=country_iso3.lower()),
+    logger.info(df_borders.crs)
+    if df_borders.crs:
+        df_borders = df_borders.to_crs('EPSG:4326')
+    else:
+        df_borders = df_borders.set_crs('EPSG:4326')
+    
+    roads = []
+
+    if "directionList" in parameters:
+        
+        for d in parameters["directionList"]:
+            download_filename = list(query_api(config.ROADS_HDX_ADDRESS.format(country_iso3=(country_iso3.lower()+f"_{d}")),
+                                            save_dir, resource_format='Geopackage').values())[0]
+            save_path = os.path.join(save_dir, config.ROADS_FILENAME.format(country_iso3=(country_iso3.lower()+f"_{d}")))
+            os.rename(os.path.join(save_dir, download_filename), save_path)
+            logger.info(f'Reading in roads file')
+            road_gdf = gpd.read_file(
+                    f'zip://{save_path}!{config.ROADS_SHAPEFILE.format(country_iso3=(country_iso3.lower()+f"_{d}"))}',
+                    crs='EPSG:4326',
+                    mask=df_borders
+            )
+            logger.info(f'Clipping {len(road_gdf)}')
+
+            roads.append(road_gdf)
+            gc.collect()
+
+        df_roads = gpd.GeoDataFrame(pd.concat(roads,ignore_index=True))
+    elif 'file' in parameters:
+        road_file =  os.path.join(config.INPUT_DIR,country_iso3 , config.MOBILITY_DIR,parameters['file'])
+        df_roads = gpd.read_file(road_file,mask=df_borders)
+        if 'colRename' in parameters:
+            df_roads = df_roads.rename(columns=parameters['colRename'])
+    else:
+        download_filename = list(query_api(config.ROADS_HDX_ADDRESS.format(country_iso3=country_iso3.lower()),
                                        save_dir, resource_format='zipped geopackage').values())[0]
-    save_path = os.path.join(save_dir, config.ROADS_FILENAME.format(country_iso3=country_iso3.lower()))
-    os.rename(os.path.join(save_dir, download_filename), save_path)
-    logger.info('Reading in roads file')
-    df_roads = gpd.read_file(
-        f'zip://{save_path}!{config.ROADS_SHAPEFILE.format(country_iso3=country_iso3.lower())}',
-        mask=df_borders)
+        save_path = os.path.join(save_dir, config.ROADS_FILENAME.format(country_iso3=country_iso3.lower()))
+        os.rename(os.path.join(save_dir, download_filename), save_path)
+        logger.info('Reading in roads file')
+        df_roads = gpd.read_file(
+            f'zip://{save_path}!{config.ROADS_SHAPEFILE.format(country_iso3=country_iso3.lower())}',
+            mask=df_borders)
+            
+    logger.info(f'Before clip {len(df_roads)} roads')
     df_roads = df_roads.loc[~df_roads['geometry'].isna()]
     logger.info(f'Read in {len(df_roads)} roads')
     return df_roads
@@ -131,21 +170,28 @@ def load_roads(country_iso3, config, parameters, df_borders):
 
 def get_road_crossings(df_roads, df_adm):
     logger.info(f'Getting road intersections with borders for {len(df_roads)} roads')
-    # For each road, get provinces that it intersects with
-    # !!! This takes awhile to run
-    df_roads['crossings'] = df_roads['geometry'].apply(lambda x:
-                                                       [y['ADM']
-                                                        for _, y in df_adm.iterrows()
-                                                        if x.intersects(y['geometry'])
-                                                        ])
-    # Drop rows with no crossings
-    df_roads = df_roads.loc[df_roads['crossings'].apply(len) > 1]
-    logger.info(f'{len(df_roads)} roads with crossings found')
-    # Turn crossings into list of pairs
-    df_roads['crossing_pairs'] = df_roads['crossings'].apply(lambda x:
-                                                             list(itertools.combinations(sorted(x), 2)))
-
-    return df_roads
+    # # For each road, get provinces that it intersects with
+    # # !!! This takes awhile to run
+    # df_roads['crossings'] = df_roads['geometry'].apply(lambda x:
+    #                                                    [y['ADM']
+    #                                                     for _, y in df_adm.iterrows()
+    #                                                     if x.intersects(y['geometry'])
+    #                                                     ])
+    # # Drop rows with no crossings
+    # df_roads = df_roads.loc[df_roads['crossings'].apply(len) > 1]
+    # logger.info(f'{len(df_roads)} roads with crossings found')
+    # # Turn crossings into list of pairs
+    # df_roads['crossing_pairs'] = df_roads['crossings'].apply(lambda x:
+    #                                                          list(itertools.combinations(sorted(x), 2)))
+    # return df_roads
+    intersect = gpd.overlay(df_roads, df_adm, how='intersection')
+    group = intersect.groupby('osm_id')['ADM'].apply(list).reset_index(name='crossings')
+    intersect = group.merge(intersect,on='osm_id',how='left')[['osm_id','name','highway','oneway','geometry','crossings']]
+    intersect = gpd.GeoDataFrame(intersect)
+    intersect = intersect.loc[intersect['crossings'].apply(len) > 1]
+    intersect['crossing_pairs'] = intersect['crossings'].apply(lambda x:list(itertools.combinations(sorted(x), 2)))
+    intersect = intersect.drop_duplicates(subset='osm_id')
+    return intersect
 
 
 def get_centroid_dist(df_adm):
@@ -177,10 +223,14 @@ def count_crossings(df_dist, df_roads, config):
     df_dist = df_dist.join(pd.DataFrame({road_class: 0 for road_class in weights_dict.keys()}, index=df_dist.index))
 
     # For each road, add the crossings to the distance matrix
+    #TODO this code is so slow its not even funny 
     for _, row in df_roads.iterrows():
         for crossing_pair in row['crossing_pairs']:
-            df_dist.loc[(df_dist['ADM_A'] == crossing_pair[0]) & (df_dist['ADM_B'] == crossing_pair[1]),
+            try:
+                df_dist.loc[(df_dist['ADM_A'] == crossing_pair[0]) & (df_dist['ADM_B'] == crossing_pair[1]),
                         row["highway"]] += 1
+            except KeyError:
+                logger.info(f'crossing pair  {crossing_pair}, {row["highway"]} key error')
 
     # Calculate weight -- roads weighted by mfactor, divided by distance
     df_dist.loc[:, 'weight'] = df_dist.apply(lambda x: sum([weights_dict[road_class] * x[road_class]
